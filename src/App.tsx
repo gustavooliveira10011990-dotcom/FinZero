@@ -11,7 +11,8 @@ import { AdminPanel } from './components/AdminPanel';
 import { 
   ShieldCheck, 
   Zap, 
-  CheckCircle2 
+  CheckCircle2,
+  MessageCircle 
 } from 'lucide-react';
 
 export default function App() {
@@ -61,12 +62,12 @@ export default function App() {
         {/* HERO SECTION */}
         <section className="relative overflow-hidden pt-8 pb-16 lg:py-16 bg-gradient-to-b from-white via-slate-50 to-slate-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
               
-              {/* Left Column: Value Proposition & Visual proof */}
-              <div className="lg:col-span-7 space-y-6">
-                {/* Clean inline trust indicator (no static pill box) */}
-                <div className="flex items-center gap-2 text-xs font-semibold text-[#03827C]">
+              {/* Left Column on Desktop / Main flow on Mobile */}
+              <div className="lg:col-span-7 flex flex-col gap-6">
+                {/* Clean inline trust indicator */}
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[#03827C]">
                   <span className="flex items-center gap-1">
                     <ShieldCheck className="w-4 h-4 text-[#05BCB4]" />
                     Simulação 100% Online e Gratuita
@@ -77,13 +78,20 @@ export default function App() {
                   <span>Sem Burocracia</span>
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-[1.15] text-balance">
-                  Empréstimo Rápido, 100% Online e Sem Burocracia
-                </h1>
+                <div className="space-y-3">
+                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-[1.15] text-balance">
+                    Empréstimo Rápido, 100% Online e Sem Burocracia
+                  </h1>
 
-                <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-xl">
-                  Simule de <strong className="text-slate-900">R$ 1 mil até 50 mil</strong> com taxas a partir de <strong className="text-[#03827C]">1,49% ao mês</strong>. Receba propostas em minutos direto no WhatsApp ou e-mail, mesmo se estiver negativado.
-                </p>
+                  <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-xl">
+                    Simule de <strong className="text-slate-900">R$ 1 mil até 50 mil</strong> com taxas a partir de <strong className="text-[#03827C]">1,49% ao mês</strong>. Receba propostas em minutos direto no WhatsApp, mesmo se estiver negativado.
+                  </p>
+                </div>
+
+                {/* Mobile-First Placement: On Mobile (< lg), LoanSimulator is right here 'na cara do gol' */}
+                <div className="block lg:hidden w-full">
+                  <LoanSimulator />
+                </div>
 
                 {/* Hero Editorial Photography Container */}
                 <div className="relative rounded-3xl overflow-hidden border border-slate-200/90 shadow-md aspect-video max-w-xl group">
@@ -121,8 +129,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right Column: Interactive Loan Simulator */}
-              <div className="lg:col-span-5">
+              {/* Desktop Column: Interactive Loan Simulator (Sticky alongside hero) */}
+              <div className="hidden lg:block lg:col-span-5 sticky top-24">
                 <LoanSimulator />
               </div>
 
@@ -186,6 +194,21 @@ export default function App() {
         type={legalModalType}
         onClose={() => setLegalModalType(null)}
       />
+
+      {/* Floating Mobile CTA ("Na cara do gol" para celular) */}
+      <aside aria-label="Ação rápida no celular" className="md:hidden fixed bottom-3 left-3 right-3 z-30 pointer-events-none">
+        <a
+          href="#simulador"
+          className="pointer-events-auto w-full py-3 px-4 bg-gradient-to-r from-[#05BCB4] to-[#04A69F] text-white font-extrabold text-sm rounded-2xl shadow-xl shadow-[#05BCB4]/40 flex items-center justify-between border border-white/25 active:scale-95 transition-all"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <MessageCircle className="w-4 h-4 fill-white text-white" />
+            </div>
+            <span className="truncate">Simular e Pedir no WhatsApp</span>
+          </div>
+        </a>
+      </aside>
     </div>
   );
 }
