@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../utils/formatters';
 import {
   ArrowRight,
@@ -30,49 +30,12 @@ export const LoanSimulator: React.FC<LoanSimulatorProps> = ({ onApply }) => {
     setAmount((prev) => Math.min(50000, Math.max(1000, prev + delta)));
   };
 
-  const handleSolicitarWhatsApp = async () => {
-    if (isDispatching) return; // Idempotência / Previne duplo clique
-
+  const handleSolicitarWhatsApp = () => {
+    if (isDispatching) return;
     setIsDispatching(true);
-    setDispatchError(null);
-    setRedirectUrl(null);
-
-    // Identificador único da tentativa para idempotência no backend
-    const attemptId = `sim-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
-    try {
-      const result = await distributeLead(attemptId, 'simulador_direto');
-
-      if (!result.success || !result.attendant) {
-        setIsDispatching(false);
-        if (result.error === 'NO_ACTIVE_ATTENDANTS') {
-          setDispatchError('Nosso time de atendimento está temporariamente indisponível. Por favor, tente novamente em alguns instantes.');
-        } else {
-          setDispatchError(result.error || 'Não foi possível conectar com um atendente agora. Tente novamente.');
-        }
-        return;
-      }
-
-      // Atendente atribuído com sucesso e persistido no banco
-      const cleanPhone = result.attendant.phone.replace(/\D/g, '');
-      const safeText = encodeURIComponent(
-        `Olá! Fiz uma simulação de empréstimo no site Finzero no valor de ${formatCurrency(amount)} e gostaria de receber a proposta de aprovação.`
-      );
-
-      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${safeText}`;
-      setRedirectUrl(whatsappUrl);
-
-      // Redireciona diretamente para o WhatsApp oficial do atendente
-      window.location.href = whatsappUrl;
-
-      // Notifica callback opcional
-      if (onApply) {
-        onApply(amount, months);
-      }
-    } catch (err: any) {
-      setIsDispatching(false);
-      setDispatchError('Falha ao conectar com o servidor de atendimento. Verifique sua conexão e tente novamente.');
-    }
+    const attemptId = crypto.randomUUID();
+    sessionStorage.setItem('finzero_pending_dispatch', JSON.stringify({ attemptId, amount }));
+    window.location.assign('/redirecionando');
   };
 
   return (
@@ -239,3 +202,68 @@ export const LoanSimulator: React.FC<LoanSimulatorProps> = ({ onApply }) => {
     </div>
   );
 };
+
+interface PendingDispatch { attemptId: string; amount?: number }
+
+function pendingDispatch(): PendingDispatch {
+  try {
+    const stored = JSON.parse(sessionStorage.getItem('finzero_pending_dispatch') || 'null');
+    if (stored && typeof stored.attemptId === 'string' && stored.attemptId.length > 0) return stored;
+  } catch { /* Criar uma tentativa quando a rota for aberta diretamente. */ }
+  const next = { attemptId: crypto.randomUUID() };
+  sessionStorage.setItem('finzero_pending_dispatch', JSON.stringify(next));
+  return next;
+}
+
+export function WhatsAppRedirect() {
+  const [request] = useState(pendingDispatch);
+  const [retry, setRetry] = useState(0);
+  const [error, setError] = useState('');
+  const [target, setTarget] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    setError('');
+    setTarget('');
+    const started = Date.now();
+    (async () => {
+      try {
+        const result = await distributeLead(request.attemptId, 'pagina_redirecionando');
+        if (cancelled) return;
+        if (!result.success || !result.attendant) {
+          setError(result.code === 'NO_ACTIVE_ATTENDANTS'
+            ? 'Nenhum atendente está disponível agora. Tente novamente em alguns instantes.'
+            : 'Não foi possível conectar ao atendimento. Tente novamente.');
+          return;
+        }
+        const phone = result.attendant.phone.replace(/\D/g, '');
+        if (!/^[0-9]{10,15}$/.test(phone)) throw new Error('Número inválido');
+        const amount = Number(request.amount);
+        const message = Number.isFinite(amount) && amount >= 1000 && amount <= 50000
+          ? 'Olá! Tenho interesse em um empréstimo de ' + formatCurrency(amount) + ' e gostaria de saber mais.'
+          : 'Olá! Tenho interesse em um empréstimo e gostaria de saber mais.';
+        const url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message);
+        setTarget(url);
+        timer = setTimeout(() => { if (!cancelled) window.location.replace(url); }, Math.max(1200 - (Date.now() - started), 300));
+      } catch {
+        if (!cancelled) setError('Não foi possível conectar ao atendimento. Verifique sua conexão e tente novamente.');
+      }
+    })();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [request, retry]);
+
+  return (
+    <main className="min-h-screen bg-slate-50 flex items-center justify-center px-5 py-12">
+      <section className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-xl p-8 text-center" aria-live="polite" aria-busy={!error && !target}>
+        <div className="mx-auto mb-7 w-14 h-14 bg-[#05BCB4] rounded-2xl text-white font-black text-3xl flex items-center justify-center">F</div>
+        {error ? <AlertTriangle className="mx-auto mb-5 w-12 h-12 text-amber-500" /> : <Loader2 className="mx-auto mb-5 w-12 h-12 text-[#05BCB4] animate-spin" />}
+        <h1 className="text-2xl font-extrabold text-slate-900">{error ? 'Atendimento indisponível' : 'Conectando você a um atendente'}</h1>
+        <p className="mt-3 text-sm text-slate-600">{error || (target ? 'Tudo pronto! Abrindo o WhatsApp...' : 'Aguarde um instante. Estamos buscando o próximo atendente disponível.')}</p>
+        {error && <button type="button" onClick={() => setRetry(value => value + 1)} className="mt-6 w-full rounded-xl bg-[#05BCB4] px-5 py-3 text-white font-bold">Tentar novamente</button>}
+        {target && <a href={target} className="mt-6 block w-full rounded-xl bg-[#05BCB4] px-5 py-3 text-white font-bold">Abrir WhatsApp</a>}
+        <a href="/#simulador" className="mt-6 inline-block text-sm text-slate-500 underline">Voltar ao site</a>
+      </section>
+    </main>
+  );
+}
