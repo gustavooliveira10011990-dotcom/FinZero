@@ -1,2 +1,2 @@
-# Todas as rotas públicas, incluindo /kw, preservam a URL com o fallback SPA.
-/* /index.html 200
+# O fallback SPA nativo do Cloudflare Pages atende /kw, /redirecionando e /painel.
+# Nao reescrever para /index.html: o Cloudflare normaliza essa URL para a raiz.
