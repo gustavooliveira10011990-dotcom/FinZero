@@ -238,7 +238,8 @@ export function WhatsAppRedirect() {
             : 'Não foi possível conectar ao atendimento. Tente novamente.');
           return;
         }
-        const phone = result.attendant.phone.replace(/\D/g, '');
+        const digits = result.attendant.phone.replace(/\D/g, '');
+        const phone = digits.length === 10 || digits.length === 11 ? '55' + digits : digits;
         if (!/^[0-9]{10,15}$/.test(phone)) throw new Error('Número inválido');
         const amount = Number(request.amount);
         const message = Number.isFinite(amount) && amount >= 1000 && amount <= 50000
