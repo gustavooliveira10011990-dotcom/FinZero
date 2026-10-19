@@ -1,7 +1,8 @@
+// Rota pública de conexão com atendentes.
 import heroImage from './assets/images/finzero_hero_happy_1792369144689.jpg';
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
-import { LoanSimulator } from './components/LoanSimulator';
+import { LoanSimulator, WhatsAppRedirect } from './components/LoanSimulator';
 import { HowItWorks } from './components/HowItWorks';
 import { Benefits } from './components/Benefits';
 import { Testimonials } from './components/Testimonials';
@@ -48,6 +49,10 @@ export default function App() {
       element.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  if (currentPath === '/redirecionando' || currentPath === '/redirecionando/') {
+    return <WhatsAppRedirect />;
+  }
 
   // ROTA /painel: Acesso direto com fallback SPA do Cloudflare Pages
   if (currentPath === '/painel' || currentPath.startsWith('/painel/')) {
