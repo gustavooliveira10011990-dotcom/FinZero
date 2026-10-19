@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { LoanSimulator } from './components/LoanSimulator';
 import { ApplicationModal } from './components/ApplicationModal';
@@ -8,6 +8,7 @@ import { Testimonials } from './components/Testimonials';
 import { FAQSection } from './components/FAQSection';
 import { Footer } from './components/Footer';
 import { LegalModals, LegalModalType } from './components/LegalModals';
+import { AdminPanel } from './components/AdminPanel';
 import { 
   ShieldCheck, 
   Zap, 
@@ -15,16 +16,44 @@ import {
 } from 'lucide-react';
 
 export default function App() {
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.pathname;
+    }
+    return '/';
+  });
+
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [selectedAmount, setSelectedAmount] = useState<number>(5000);
   const [selectedMonths, setSelectedMonths] = useState<number>(24);
   const [legalModalType, setLegalModalType] = useState<LegalModalType>(null);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigate = (path: string) => {
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+    setCurrentPath(path);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleOpenApplication = (amount: number = 5000, months: number = 24) => {
     setSelectedAmount(amount);
     setSelectedMonths(months);
     setIsModalOpen(true);
   };
+
+  // ROTA /painel: Acesso direto com fallback SPA do Cloudflare Pages
+  if (currentPath === '/painel' || currentPath.startsWith('/painel/')) {
+    return <AdminPanel onBackToSite={() => navigate('/')} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
@@ -150,7 +179,10 @@ export default function App() {
       </main>
 
       {/* FOOTER with Discrete Intermediary Disclaimer & Kwai Ads Compliance */}
-      <Footer onOpenLegalModal={setLegalModalType} />
+      <Footer 
+        onOpenLegalModal={setLegalModalType} 
+        onOpenAdmin={() => navigate('/painel')} 
+      />
 
       {/* INTERACTIVE LEAD APPLICATION MODAL */}
       <ApplicationModal

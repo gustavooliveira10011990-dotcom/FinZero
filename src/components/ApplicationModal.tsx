@@ -10,10 +10,13 @@ import {
   Wallet, 
   MessageCircle, 
   Sparkles,
-  BadgeCheck
+  BadgeCheck,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import { ApplicationFormData, LoanPurpose, EmploymentType } from '../types';
 import { formatCurrency, maskCPF, maskPhone, maskCEP, isValidCPF, calculateLoan } from '../utils/formatters';
+import { distributeLead } from '../services/whatsappService';
 
 interface ApplicationModalProps {
   isOpen: boolean;
@@ -67,6 +70,9 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [attemptId, setAttemptId] = useState<string>(() => `attempt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+  const [isDispatching, setIsDispatching] = useState<boolean>(false);
+  const [dispatchError, setDispatchError] = useState<string>('');
 
   // Sync initial props when opened
   useEffect(() => {
@@ -79,6 +85,10 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
       setStep(1);
       setErrors({});
       setAnalyzingProgress(0);
+      setDispatchError('');
+      setIsDispatching(false);
+      // Generate a new idempotency attempt ID for each new application session
+      setAttemptId(`attempt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
     }
   }, [isOpen, initialAmount, initialMonths]);
 
@@ -162,17 +172,46 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
 
   const simulation = calculateLoan(formData.amount, formData.months);
 
-  // WhatsApp redirection link with safe pre-filled lead data
-  const handleOpenWhatsApp = () => {
-    const text = encodeURIComponent(
-      `Olá Finzero! Fiz a simulação no site e gostaria de concluir minha proposta de empréstimo.\n\n` +
-      `• Nome: ${formData.fullName}\n` +
-      `• Valor: ${formatCurrency(formData.amount)}\n` +
-      `• Parcelas: ${formData.months}x de aprox. ${formatCurrency(simulation.monthlyPayment)}\n` +
-      `• Ocupação: ${formData.employmentType}\n` +
-      `• Negativado: ${formData.isNegativado === 'sim' ? 'Sim' : 'Não'}`
-    );
-    window.open(`https://wa.me/5511999999999?text=${text}`, '_blank');
+  // Encaminhamento real e idempotente de WhatsApp via backend com persistência
+  const handleOpenWhatsApp = async () => {
+    if (isDispatching) return; // Previne duplo clique concorrente no frontend
+    setIsDispatching(true);
+    setDispatchError('');
+
+    try {
+      const res = await distributeLead(attemptId, 'modal_proposta');
+
+      if (!res.success || !res.attendant) {
+        setIsDispatching(false);
+        if (res.code === 'NO_ACTIVE_ATTENDANTS') {
+          setDispatchError('Nenhum atendente ativo configurado no momento no sistema de atendimento. Por favor, tente novamente em alguns instantes.');
+        } else {
+          setDispatchError(res.error || 'Não foi possível conectar ao sistema de atendimento. Por favor, tente novamente.');
+        }
+        return;
+      }
+
+      // Atribuição persistida com sucesso!
+      // Formata mensagem sem dados pessoais sensíveis (sem CPF, sem data de nascimento, sem renda)
+      const cleanPhone = res.attendant.phone.replace(/\D/g, '');
+      const firstName = formData.fullName.trim().split(' ')[0] || 'Cliente';
+      
+      const safeText = encodeURIComponent(
+        `Olá! Sou ${firstName}. Realizei uma simulação na Finzero no valor de ${formatCurrency(formData.amount)} em ${formData.months} parcelas e gostaria de dar continuidade à minha proposta com um especialista.`
+      );
+
+      const targetUrl = `https://wa.me/${cleanPhone}?text=${safeText}`;
+      setIsDispatching(false);
+
+      // Redirecionamento após persistência verificada
+      const win = window.open(targetUrl, '_blank');
+      if (!win) {
+        window.location.href = targetUrl;
+      }
+    } catch (err: any) {
+      setIsDispatching(false);
+      setDispatchError(`Erro ao conectar com o serviço de atendimento: ${err.message || 'Verifique sua conexão'}`);
+    }
   };
 
   return (
@@ -529,14 +568,34 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
               </div>
 
               {/* CTAs */}
-              <div className="space-y-2.5 pt-2">
+              <div className="space-y-3 pt-2">
+                {dispatchError && (
+                  <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <strong className="block text-slate-900 font-bold">Aviso do Atendimento:</strong>
+                      <p className="leading-relaxed text-slate-700">{dispatchError}</p>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={handleOpenWhatsApp}
-                  className="w-full py-4 px-6 bg-[#05BCB4] hover:bg-[#04A69F] active:scale-[0.99] text-white font-bold text-sm sm:text-base rounded-xl transition-all shadow-lg shadow-[#05BCB4]/30 flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={isDispatching}
+                  className="w-full py-4 px-6 bg-[#05BCB4] hover:bg-[#04A69F] active:scale-[0.99] text-white font-bold text-sm sm:text-base rounded-xl transition-all shadow-lg shadow-[#05BCB4]/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <MessageCircle className="w-5 h-5" />
-                  <span>Finalizar Proposta pelo WhatsApp Oficial</span>
+                  {isDispatching ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Conectando ao Atendente Oficial...</span>
+                    </>
+                  ) : (
+                    <>
+                      <MessageCircle className="w-5 h-5" />
+                      <span>Finalizar Proposta pelo WhatsApp Oficial</span>
+                    </>
+                  )}
                 </button>
 
                 <button

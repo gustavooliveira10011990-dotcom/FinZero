@@ -4,9 +4,10 @@ import { LegalModalType } from './LegalModals';
 
 interface FooterProps {
   onOpenLegalModal: (type: LegalModalType) => void;
+  onOpenAdmin?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenLegalModal }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenLegalModal, onOpenAdmin }) => {
   return (
     <footer className="bg-slate-900 text-slate-400 text-xs border-t border-slate-800">
       {/* Top Footer with Brand and Trust Badges */}
@@ -87,6 +88,21 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegalModal }) => {
                 >
                   Política de Privacidade (LGPD)
                 </button>
+              </li>
+              <li>
+                <a
+                  href="/painel"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (onOpenAdmin) onOpenAdmin();
+                    else window.location.href = '/painel';
+                  }}
+                  className="hover:text-slate-300 text-slate-500 transition-colors text-left cursor-pointer flex items-center gap-1 text-[11px]"
+                  title="Área restrita de gestão de atendentes"
+                >
+                  <Lock className="w-3 h-3 text-[#05BCB4]" />
+                  <span>Painel de Atendentes</span>
+                </a>
               </li>
             </ul>
           </div>
