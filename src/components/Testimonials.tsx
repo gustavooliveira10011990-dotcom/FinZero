@@ -1,3 +1,5 @@
+import marianaAvatar from '../assets/images/finzero_avatar_mariana_1792369145952.jpg';
+import carlosAvatar from '../assets/images/finzero_avatar_carlos_1792369146151.jpg';
 import React from 'react';
 import { Star, CheckCircle } from 'lucide-react';
 
@@ -7,7 +9,7 @@ export const Testimonials: React.FC = () => {
       name: 'Mariana Siqueira',
       city: 'Campinas, SP',
       role: 'Microempreendedora',
-      avatar: '/src/assets/images/finzero_avatar_mariana_1792369145952.jpg',
+      avatar: marianaAvatar,
       text: 'Estava negativada e precisava de R$ 7.500 para repor o estoque da minha loja. Fiz a simulação na Finzero e em menos de 24h o valor caiu via PIX na minha conta!',
       amount: 'R$ 7.500 liberados',
     },
@@ -15,7 +17,7 @@ export const Testimonials: React.FC = () => {
       name: 'Carlos Eduardo Mendes',
       city: 'Belo Horizonte, MG',
       role: 'Motorista de Aplicativo',
-      avatar: '/src/assets/images/finzero_avatar_carlos_1792369146151.jpg',
+      avatar: carlosAvatar,
       text: 'O que mais gostei foi a facilidade. A simulação foi simples, fui conectado com uma ótima opção e o valor foi direto para minha conta bancária.',
       amount: 'R$ 4.000 liberados',
     },

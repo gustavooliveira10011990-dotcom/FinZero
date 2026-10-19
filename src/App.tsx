@@ -1,3 +1,4 @@
+import heroImage from './assets/images/finzero_hero_happy_1792369144689.jpg';
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { LoanSimulator } from './components/LoanSimulator';
@@ -96,7 +97,7 @@ export default function App() {
                 {/* Hero Editorial Photography Container */}
                 <div className="relative rounded-3xl overflow-hidden border border-slate-200/90 shadow-md aspect-video max-w-xl group">
                   <img
-                    src="/src/assets/images/finzero_hero_happy_1792369144689.jpg"
+                    src={heroImage}
                     alt="Cliente Finzero satisfeita com a liberação rápida do empréstimo"
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102"
