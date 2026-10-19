@@ -1,3 +1,2 @@
-/kw /index.html 200
-/kw/ /index.html 200
+# Todas as rotas públicas, incluindo /kw, preservam a URL com o fallback SPA.
 /* /index.html 200
