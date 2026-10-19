@@ -11,12 +11,7 @@ import { LegalModals, LegalModalType } from './components/LegalModals';
 import { 
   ShieldCheck, 
   Zap, 
-  Clock, 
-  Lock, 
-  ArrowRight, 
-  CheckCircle2, 
-  Building2,
-  TrendingDown
+  CheckCircle2 
 } from 'lucide-react';
 
 export default function App() {
@@ -152,35 +147,6 @@ export default function App() {
 
         {/* FAQ */}
         <FAQSection />
-
-        {/* FINAL CALL TO ACTION SECTION */}
-        <section className="py-16 bg-gradient-to-br from-slate-900 to-slate-950 text-white text-center">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#05BCB4]">
-              Comece agora mesmo
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-              Pronto para colocar as contas em dia?
-            </h2>
-            <p className="text-slate-300 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
-              Faça sua simulação 100% gratuita em menos de 2 minutos e encontre as menores parcelas para o seu bolso.
-            </p>
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => handleOpenApplication(selectedAmount, selectedMonths)}
-                className="inline-flex items-center gap-2 px-8 py-4 bg-[#05BCB4] hover:bg-[#04A69F] active:scale-95 text-slate-950 font-black text-base rounded-2xl shadow-xl shadow-[#05BCB4]/25 transition-all cursor-pointer"
-              >
-                <span>Solicitar Minha Proposta Grátis</span>
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="text-xs text-slate-400 pt-2 flex items-center justify-center gap-2">
-              <Lock className="w-3.5 h-3.5 text-slate-400" />
-              <span>Simulação rápida e segura · Resposta imediata</span>
-            </div>
-          </div>
-        </section>
       </main>
 
       {/* FOOTER with Discrete Intermediary Disclaimer & Kwai Ads Compliance */}
