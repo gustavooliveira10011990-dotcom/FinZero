@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { formatCurrency } from '../utils/formatters';
 import {
   ArrowRight,
-  Lock,
   Zap,
   MessageCircle,
   Loader2,
@@ -223,7 +222,6 @@ export const LoanSimulator: React.FC<LoanSimulatorProps> = ({ onApply }) => {
               </div>
               <div className="flex flex-col items-start text-left leading-tight">
                 <span className="tracking-wide">SOLICITAR EMPRÉSTIMO</span>
-                <span className="text-[11px] font-normal text-white/90">Direto no WhatsApp oficial</span>
               </div>
               <ArrowRight className="w-5 h-5 ml-auto shrink-0 group-hover:translate-x-1 transition-transform" />
             </>
@@ -231,11 +229,7 @@ export const LoanSimulator: React.FC<LoanSimulatorProps> = ({ onApply }) => {
         </button>
 
         {/* Quick Micro-Trust Guarantee */}
-        <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-slate-500 font-medium text-center">
-          <div className="flex items-center justify-center gap-1.5 py-1 bg-slate-50 rounded-lg border border-slate-100">
-            <Lock className="w-3.5 h-3.5 text-[#05BCB4]" />
-            <span>Sem taxas antecipadas</span>
-          </div>
+        <div className="grid grid-cols-1 gap-2 pt-1 text-[11px] text-slate-500 font-medium text-center">
           <div className="flex items-center justify-center gap-1.5 py-1 bg-slate-50 rounded-lg border border-slate-100">
             <CheckCircle2 className="w-3.5 h-3.5 text-[#05BCB4]" />
             <span>Aceita negativados</span>
