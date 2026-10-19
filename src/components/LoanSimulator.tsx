@@ -34,7 +34,7 @@ export const LoanSimulator: React.FC<LoanSimulatorProps> = ({ onApply }) => {
     if (isDispatching) return;
     setIsDispatching(true);
     const attemptId = crypto.randomUUID();
-    sessionStorage.setItem('finzero_pending_dispatch', JSON.stringify({ attemptId, amount }));
+    sessionStorage.setItem('finzero_pending_dispatch', JSON.stringify({ attemptId, amount, returnPath: /^\/kw\/?$/.test(window.location.pathname) ? '/kw' : '/' }));
     window.location.assign('/redirecionando');
   };
 
@@ -203,7 +203,7 @@ export const LoanSimulator: React.FC<LoanSimulatorProps> = ({ onApply }) => {
   );
 };
 
-interface PendingDispatch { attemptId: string; amount?: number }
+interface PendingDispatch { attemptId: string; amount?: number; returnPath?: string }
 
 function pendingDispatch(): PendingDispatch {
   try {
@@ -220,16 +220,17 @@ export function WhatsAppRedirect() {
   const [retry, setRetry] = useState(0);
   const [error, setError] = useState('');
   const [target, setTarget] = useState('');
+  const [webTarget, setWebTarget] = useState('');
 
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     setError('');
     setTarget('');
-    const started = Date.now();
+    setWebTarget('');
     (async () => {
       try {
-        const result = await distributeLead(request.attemptId, 'pagina_redirecionando');
+        const result = await distributeLead(request.attemptId, request.returnPath === '/kw' ? 'pagina_kw' : 'pagina_redirecionando');
         if (cancelled) return;
         if (!result.success || !result.attendant) {
           setError(result.code === 'NO_ACTIVE_ATTENDANTS'
@@ -243,9 +244,17 @@ export function WhatsAppRedirect() {
         const message = Number.isFinite(amount) && amount >= 1000 && amount <= 50000
           ? 'Olá! Tenho interesse em um empréstimo de ' + formatCurrency(amount) + ' e gostaria de saber mais.'
           : 'Olá! Tenho interesse em um empréstimo e gostaria de saber mais.';
-        const url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message);
+        const webUrl = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message);
+        const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const url = mobile ? 'whatsapp://send?phone=' + phone + '&text=' + encodeURIComponent(message) : webUrl;
         setTarget(url);
-        timer = setTimeout(() => { if (!cancelled) window.location.replace(url); }, Math.max(1200 - (Date.now() - started), 300));
+        setWebTarget(webUrl);
+        timer = setTimeout(() => {
+          if (!cancelled) {
+            if (mobile) window.location.assign(url);
+            else window.location.replace(url);
+          }
+        }, 150);
       } catch {
         if (!cancelled) setError('Não foi possível conectar ao atendimento. Verifique sua conexão e tente novamente.');
       }
@@ -262,7 +271,8 @@ export function WhatsAppRedirect() {
         <p className="mt-3 text-sm text-slate-600">{error || (target ? 'Tudo pronto! Abrindo o WhatsApp...' : 'Aguarde um instante. Estamos buscando o próximo atendente disponível.')}</p>
         {error && <button type="button" onClick={() => setRetry(value => value + 1)} className="mt-6 w-full rounded-xl bg-[#05BCB4] px-5 py-3 text-white font-bold">Tentar novamente</button>}
         {target && <a href={target} className="mt-6 block w-full rounded-xl bg-[#05BCB4] px-5 py-3 text-white font-bold">Abrir WhatsApp</a>}
-        <a href="/#simulador" className="mt-6 inline-block text-sm text-slate-500 underline">Voltar ao site</a>
+        {target && <p className="mt-3 text-xs text-slate-500">Se o aplicativo não abrir automaticamente, toque no botão acima ou <a href={webTarget} className="underline">continue pelo link do WhatsApp</a>.</p>}
+        <a href={(request.returnPath === '/kw' ? '/kw' : '/') + '#simulador'} className="mt-6 inline-block text-sm text-slate-500 underline">Voltar ao site</a>
       </section>
     </main>
   );
