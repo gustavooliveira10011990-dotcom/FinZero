@@ -35,7 +35,7 @@ export const LoanSimulator: React.FC<LoanSimulatorProps> = ({ onApply }) => {
     setIsDispatching(true);
     const attemptId = crypto.randomUUID();
     sessionStorage.setItem('finzero_pending_dispatch', JSON.stringify({ attemptId, amount, returnPath: /^\/kw\/?$/.test(window.location.pathname) ? '/kw' : '/' }));
-    window.location.assign('/redirecionando');
+    window.location.assign('/redirecionando' + window.location.search);
   };
 
   return (
@@ -255,7 +255,7 @@ export function WhatsAppRedirect() {
             if (mobile) window.location.assign(url);
             else window.location.replace(url);
           }
-        }, 150);
+        }, 1800);
       } catch {
         if (!cancelled) setError('Não foi possível conectar ao atendimento. Verifique sua conexão e tente novamente.');
       }
