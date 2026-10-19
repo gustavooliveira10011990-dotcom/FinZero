@@ -1,7 +1,7 @@
 /**
  * Serviço de Gerenciamento e Distribuição de Atendentes WhatsApp
  * Suporta Supabase Edge Functions reais com tratamento explícito de erros,
- * e modo demonstração isolado quando o Supabase ainda não foi configurado.
+ * Configuração ausente gera erro explícito, sem dados simulados.
  */
 
 export interface Attendant {
@@ -65,223 +65,11 @@ export const isSupabaseConfigured = Boolean(
 
 const SESSION_STORAGE_KEY = 'finzero_admin_session_token';
 
-// Storage em memória isolado para modo demonstração
-class DemoStore {
-  private attendants: Attendant[] = [
-    {
-      id: 'demo-1',
-      name: 'Atendente Exemplo 01',
-      phone: '5511970810467',
-      is_active: true,
-      is_deleted: false,
-      display_order: 1,
-      created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-    },
-    {
-      id: 'demo-2',
-      name: 'Atendente Exemplo 02',
-      phone: '5511999998888',
-      is_active: true,
-      is_deleted: false,
-      display_order: 2,
-      created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
-    },
-  ];
-
-  private dispatches: Array<{
-    id: string;
-    attempt_id: string;
-    attendant_id: string;
-    attendant_name: string;
-    attendant_phone: string;
-    created_at: string;
-  }> = [];
-
-  private lastIndex = -1;
-  private authenticated = false;
-
-  login(password: string) {
-    if (password === 'admin123' || password === 'demo') {
-      this.authenticated = true;
-      return true;
-    }
-    return false;
-  }
-
-  logout() {
-    this.authenticated = false;
-  }
-
-  isAuthed() {
-    return this.authenticated;
-  }
-
-  getAttendants() {
-    return [...this.attendants].sort((a, b) => {
-      if (a.is_deleted !== b.is_deleted) return a.is_deleted ? 1 : -1;
-      if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
-      return a.display_order - b.display_order;
-    });
-  }
-
-  createAttendant(name: string, phone: string, display_order: number = 0): Attendant {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const newAttendant: Attendant = {
-      id: `demo-${Date.now()}`,
-      name: name.trim(),
-      phone: cleanPhone,
-      is_active: true,
-      is_deleted: false,
-      display_order,
-      created_at: new Date().toISOString(),
-    };
-    this.attendants.push(newAttendant);
-    return newAttendant;
-  }
-
-  updateAttendant(id: string, name?: string, phone?: string, display_order?: number) {
-    const att = this.attendants.find(a => a.id === id);
-    if (!att) throw new Error('Atendente não encontrado');
-    if (name) att.name = name.trim();
-    if (phone) att.phone = phone.replace(/\D/g, '');
-    if (typeof display_order === 'number') att.display_order = display_order;
-    return att;
-  }
-
-  toggleActive(id: string, is_active: boolean) {
-    const att = this.attendants.find(a => a.id === id);
-    if (!att) throw new Error('Atendente não encontrado');
-    att.is_active = is_active;
-    return att;
-  }
-
-  softDelete(id: string) {
-    const att = this.attendants.find(a => a.id === id);
-    if (!att) throw new Error('Atendente não encontrado');
-    att.is_deleted = true;
-    att.is_active = false;
-    return att;
-  }
-
-  distribute(attemptId: string): DistributeResult {
-    // Idempotência
-    const existing = this.dispatches.find(d => d.attempt_id === attemptId);
-    if (existing) {
-      return {
-        success: true,
-        attendant: {
-          id: existing.attendant_id,
-          name: existing.attendant_name,
-          phone: existing.attendant_phone,
-        },
-        is_idempotent_replay: true,
-      };
-    }
-
-    const active = this.attendants.filter(a => a.is_active && !a.is_deleted)
-      .sort((a, b) => a.display_order - b.display_order);
-
-    if (active.length === 0) {
-      return {
-        success: false,
-        error: 'Nenhum atendente ativo configurado no momento',
-        code: 'NO_ACTIVE_ATTENDANTS',
-      };
-    }
-
-    this.lastIndex = (this.lastIndex + 1) % active.length;
-    const chosen = active[this.lastIndex];
-
-    this.dispatches.push({
-      id: `disp-${Date.now()}`,
-      attempt_id: attemptId,
-      attendant_id: chosen.id,
-      attendant_name: chosen.name,
-      attendant_phone: chosen.phone,
-      created_at: new Date().toISOString(),
-    });
-
-    return {
-      success: true,
-      attendant: {
-        id: chosen.id,
-        name: chosen.name,
-        phone: chosen.phone,
-      },
-      is_idempotent_replay: false,
-    };
-  }
-
-  getMetrics(): RotationMetrics {
-    // Cálculo de datas em America/Sao_Paulo
-    const now = new Date();
-    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
-    const currentDateSp = formatter.format(now); // YYYY-MM-DD
-
-    const getMidnightSp = (daysAgo: number) => {
-      const d = new Date(now.getTime() - daysAgo * 86400000);
-      const str = formatter.format(d);
-      return new Date(`${str}T00:00:00-03:00`).getTime();
-    };
-
-    const todayStart = getMidnightSp(0);
-    const sevenDaysStart = getMidnightSp(6);
-    const fifteenDaysStart = getMidnightSp(14);
-    const thirtyDaysStart = getMidnightSp(29);
-
-    const calcCounts = (filterAttendantId?: string) => {
-      const list = filterAttendantId 
-        ? this.dispatches.filter(d => d.attendant_id === filterAttendantId)
-        : this.dispatches;
-
-      return {
-        today: list.filter(d => new Date(d.created_at).getTime() >= todayStart).length,
-        last_7_days: list.filter(d => new Date(d.created_at).getTime() >= sevenDaysStart).length,
-        last_15_days: list.filter(d => new Date(d.created_at).getTime() >= fifteenDaysStart).length,
-        last_30_days: list.filter(d => new Date(d.created_at).getTime() >= thirtyDaysStart).length,
-        all_time: list.length,
-      };
-    };
-
-    const totals = calcCounts();
-    const attendantsMetrics = this.getAttendants().map(att => {
-      const counts = calcCounts(att.id);
-      return {
-        ...att,
-        dispatches_today: counts.today,
-        dispatches_7d: counts.last_7_days,
-        dispatches_15d: counts.last_15_days,
-        dispatches_30d: counts.last_30_days,
-        dispatches_total: counts.all_time,
-      };
-    });
-
-    return {
-      timezone: 'America/Sao_Paulo',
-      current_date_sp: currentDateSp,
-      current_timestamp_sp: now.toISOString(),
-      intervals: {
-        today: { label: 'Hoje', start: new Date(todayStart).toISOString() },
-        '7d': { label: 'Últimos 7 dias', start: new Date(sevenDaysStart).toISOString() },
-        '15d': { label: 'Últimos 15 dias', start: new Date(fifteenDaysStart).toISOString() },
-        '30d': { label: 'Últimos 30 dias', start: new Date(thirtyDaysStart).toISOString() },
-      },
-      totals,
-      attendants: attendantsMetrics,
-    };
-  }
-}
-
-const demoStore = new DemoStore();
-
 /**
  * Encaminha o lead para o próximo atendente no rodízio de forma concorrente e idempotente
  */
 export async function distributeLead(attemptId: string, source: string = 'modal_proposta'): Promise<DistributeResult> {
-  if (!isSupabaseConfigured) {
-    console.info('[Finzero] Operando em Modo Demonstração (VITE_SUPABASE_URL não configurado).');
-    return demoStore.distribute(attemptId);
-  }
+  if (!isSupabaseConfigured) { return { success: false, error: 'Atendimento temporariamente indisponível. Tente novamente mais tarde.' }; }
 
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/distribute-lead`, {
@@ -322,14 +110,7 @@ export async function distributeLead(attemptId: string, source: string = 'modal_
  * Autenticação do Administrador por Senha
  */
 export async function adminLogin(password: string): Promise<{ success: boolean; error?: string; token?: string }> {
-  if (!isSupabaseConfigured) {
-    const ok = demoStore.login(password);
-    if (!ok) {
-      return { success: false, error: 'Senha incorreta no Modo Demonstração. Use: admin123 ou demo' };
-    }
-    sessionStorage.setItem(SESSION_STORAGE_KEY, 'demo_token');
-    return { success: true, token: 'demo_token' };
-  }
+  if (!isSupabaseConfigured) { return { success: false, error: 'Atendimento temporariamente indisponível. Tente novamente mais tarde.' }; }
 
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-auth`, {
@@ -360,9 +141,7 @@ export function getAdminToken(): string | null {
 
 export function clearAdminToken(): void {
   sessionStorage.removeItem(SESSION_STORAGE_KEY);
-  if (!isSupabaseConfigured) {
-    demoStore.logout();
-  }
+  
 }
 
 /**
@@ -372,9 +151,7 @@ export async function verifyAdminSession(): Promise<boolean> {
   const token = getAdminToken();
   if (!token) return false;
 
-  if (!isSupabaseConfigured) {
-    return demoStore.isAuthed();
-  }
+  if (!isSupabaseConfigured) return false;
 
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-auth`, {
@@ -402,9 +179,7 @@ export async function verifyAdminSession(): Promise<boolean> {
  * Obtém métricas de encaminhamentos
  */
 export async function fetchRotationMetrics(): Promise<{ success: boolean; metrics?: RotationMetrics; error?: string }> {
-  if (!isSupabaseConfigured) {
-    return { success: true, metrics: demoStore.getMetrics() };
-  }
+  if (!isSupabaseConfigured) { return { success: false, error: 'Atendimento temporariamente indisponível. Tente novamente mais tarde.' }; }
 
   const token = getAdminToken();
   if (!token) {
@@ -435,9 +210,7 @@ export async function fetchRotationMetrics(): Promise<{ success: boolean; metric
  * Ações de Atendentes (Criar, Editar, Pausar/Despausar, Exclusão Lógica)
  */
 export async function fetchAttendantsList(): Promise<{ success: boolean; attendants?: Attendant[]; error?: string }> {
-  if (!isSupabaseConfigured) {
-    return { success: true, attendants: demoStore.getAttendants() };
-  }
+  if (!isSupabaseConfigured) { return { success: false, error: 'Atendimento temporariamente indisponível. Tente novamente mais tarde.' }; }
 
   const token = getAdminToken();
   try {
@@ -462,14 +235,7 @@ export async function fetchAttendantsList(): Promise<{ success: boolean; attenda
 }
 
 export async function createAttendant(name: string, phone: string, displayOrder: number = 0): Promise<{ success: boolean; attendant?: Attendant; error?: string }> {
-  if (!isSupabaseConfigured) {
-    try {
-      const att = demoStore.createAttendant(name, phone, displayOrder);
-      return { success: true, attendant: att };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  }
+  if (!isSupabaseConfigured) { return { success: false, error: 'Atendimento temporariamente indisponível. Tente novamente mais tarde.' }; }
 
   const token = getAdminToken();
   try {
@@ -494,14 +260,7 @@ export async function createAttendant(name: string, phone: string, displayOrder:
 }
 
 export async function updateAttendant(id: string, name?: string, phone?: string, displayOrder?: number): Promise<{ success: boolean; attendant?: Attendant; error?: string }> {
-  if (!isSupabaseConfigured) {
-    try {
-      const att = demoStore.updateAttendant(id, name, phone, displayOrder);
-      return { success: true, attendant: att };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  }
+  if (!isSupabaseConfigured) { return { success: false, error: 'Atendimento temporariamente indisponível. Tente novamente mais tarde.' }; }
 
   const token = getAdminToken();
   try {
@@ -526,14 +285,7 @@ export async function updateAttendant(id: string, name?: string, phone?: string,
 }
 
 export async function toggleAttendantActive(id: string, isActive: boolean): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured) {
-    try {
-      demoStore.toggleActive(id, isActive);
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  }
+  if (!isSupabaseConfigured) { return { success: false, error: 'Atendimento temporariamente indisponível. Tente novamente mais tarde.' }; }
 
   const token = getAdminToken();
   try {
@@ -558,14 +310,7 @@ export async function toggleAttendantActive(id: string, isActive: boolean): Prom
 }
 
 export async function softDeleteAttendant(id: string): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured) {
-    try {
-      demoStore.softDelete(id);
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    }
-  }
+  if (!isSupabaseConfigured) { return { success: false, error: 'Atendimento temporariamente indisponível. Tente novamente mais tarde.' }; }
 
   const token = getAdminToken();
   try {

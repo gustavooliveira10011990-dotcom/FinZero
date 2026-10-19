@@ -108,11 +108,13 @@ AS $$
 DECLARE
     v_existing_dispatch RECORD;
     v_last_id UUID;
-    v_chosen_attendant RECORD;
+    v_chosen_attendant public.attendants%ROWTYPE;
     v_first_attendant RECORD;
     v_found BOOLEAN := false;
-    v_record RECORD;
+    v_record public.attendants%ROWTYPE;
 BEGIN
+    -- Serializar antes de conferir idempotência, inclusive tentativas simultâneas iguais.
+    PERFORM 1 FROM public.rotation_state WHERE id = 1 FOR UPDATE;
     -- 1. CHECAGEM DE IDEMPOTÊNCIA:
     -- Se a mesma tentativa (duplo clique ou retry da mesma submissão) já existir, retorna o mesmo atendente sem avançar a fila.
     SELECT 
@@ -155,7 +157,7 @@ BEGIN
     -- Se last_attendant_id foi o último da lista ou foi desativado/excluído, o rodízio volta ao primeiro.
     
     -- Obter o primeiro da fila caso precise reiniciar o ciclo
-    SELECT a.id, a.name, a.phone
+    SELECT a.*
     INTO v_first_attendant
     FROM public.attendants a
     WHERE a.is_active = true 
@@ -178,22 +180,14 @@ BEGIN
     -- Se temos um last_attendant_id, buscar o próximo na fila após ele
     IF v_last_id IS NOT NULL THEN
         -- Buscar atendentes ativos posicionados após o último atendente
-        FOR v_record IN 
-            SELECT a.id, a.name, a.phone, a.display_order, a.created_at
-            FROM public.attendants a
-            WHERE a.is_active = true 
-              AND a.is_deleted = false
-            ORDER BY a.display_order ASC, a.created_at ASC, a.id ASC
-        LOOP
-            IF v_found THEN
-                v_chosen_attendant := v_record;
-                EXIT;
-            END IF;
-
-            IF v_record.id = v_last_id THEN
-                v_found := true;
-            END IF;
-        END LOOP;
+        SELECT a.* INTO v_chosen_attendant
+        FROM public.attendants a
+        JOIN public.attendants previous ON previous.id = v_last_id
+        WHERE a.is_active AND NOT a.is_deleted
+          AND (a.display_order, a.created_at, a.id) >
+              (previous.display_order, previous.created_at, previous.id)
+        ORDER BY a.display_order, a.created_at, a.id
+        LIMIT 1;
     END IF;
 
     -- Se não encontrou um próximo após o último (ou era o último da fila, ou last_id era nulo/desativado):
@@ -268,9 +262,9 @@ BEGIN
 
     -- Inícios de intervalo inclusivos de dias de calendário no fuso de São Paulo
     v_today_start := (v_today_date::TEXT || ' 00:00:00 America/Sao_Paulo')::TIMESTAMPTZ;
-    v_7d_start    := ((v_today_date - INTERVAL '6 days')::TEXT || ' 00:00:00 America/Sao_Paulo')::TIMESTAMPTZ;
-    v_15d_start   := ((v_today_date - INTERVAL '14 days')::TEXT || ' 00:00:00 America/Sao_Paulo')::TIMESTAMPTZ;
-    v_30d_start   := ((v_today_date - INTERVAL '29 days')::TEXT || ' 00:00:00 America/Sao_Paulo')::TIMESTAMPTZ;
+    v_7d_start    := (v_today_date - 6)::timestamp AT TIME ZONE 'America/Sao_Paulo';
+    v_15d_start   := (v_today_date - 14)::timestamp AT TIME ZONE 'America/Sao_Paulo';
+    v_30d_start   := (v_today_date - 29)::timestamp AT TIME ZONE 'America/Sao_Paulo';
 
     -- Totais gerais
     SELECT COUNT(*) INTO v_total_today FROM public.lead_dispatches WHERE created_at >= v_today_start;
@@ -328,3 +322,8 @@ REVOKE EXECUTE ON FUNCTION public.get_rotation_metrics() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.get_rotation_metrics() FROM anon;
 REVOKE EXECUTE ON FUNCTION public.get_rotation_metrics() FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.get_rotation_metrics() TO service_role;
+
+REVOKE ALL ON TABLE public.attendants, public.rotation_state, public.lead_dispatches,
+public.admin_sessions, public.admin_auth_attempts FROM anon, authenticated;
+GRANT ALL ON TABLE public.attendants, public.rotation_state, public.lead_dispatches,
+public.admin_sessions, public.admin_auth_attempts TO service_role;
