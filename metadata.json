@@ -1,0 +1,6 @@
+{
+  "name": "Finzero - Simulação de Empréstimo Online",
+  "description": "Simule seu empréstimo online de R$ 1.000 a R$ 50.000 em minutos com as melhores taxas do mercado.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
