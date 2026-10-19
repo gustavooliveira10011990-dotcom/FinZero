@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { LoanSimulator } from './components/LoanSimulator';
-import { ApplicationModal } from './components/ApplicationModal';
 import { HowItWorks } from './components/HowItWorks';
 import { Benefits } from './components/Benefits';
 import { Testimonials } from './components/Testimonials';
@@ -23,9 +22,6 @@ export default function App() {
     return '/';
   });
 
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [selectedAmount, setSelectedAmount] = useState<number>(5000);
-  const [selectedMonths, setSelectedMonths] = useState<number>(24);
   const [legalModalType, setLegalModalType] = useState<LegalModalType>(null);
 
   useEffect(() => {
@@ -44,10 +40,11 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleOpenApplication = (amount: number = 5000, months: number = 24) => {
-    setSelectedAmount(amount);
-    setSelectedMonths(months);
-    setIsModalOpen(true);
+  const handleScrollToSimulator = () => {
+    const element = document.getElementById('simulador');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   // ROTA /painel: Acesso direto com fallback SPA do Cloudflare Pages
@@ -58,7 +55,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
       {/* Top Header */}
-      <Header onStartSimulation={() => handleOpenApplication(selectedAmount, selectedMonths)} />
+      <Header onStartSimulation={handleScrollToSimulator} />
 
       <main className="flex-1">
         {/* HERO SECTION */}
@@ -126,7 +123,7 @@ export default function App() {
 
               {/* Right Column: Interactive Loan Simulator */}
               <div className="lg:col-span-5">
-                <LoanSimulator onApply={handleOpenApplication} />
+                <LoanSimulator />
               </div>
 
             </div>
@@ -182,14 +179,6 @@ export default function App() {
       <Footer 
         onOpenLegalModal={setLegalModalType} 
         onOpenAdmin={() => navigate('/painel')} 
-      />
-
-      {/* INTERACTIVE LEAD APPLICATION MODAL */}
-      <ApplicationModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        initialAmount={selectedAmount}
-        initialMonths={selectedMonths}
       />
 
       {/* LEGAL & COMPLIANCE MODALS (Terms, Privacy LGPD, Anti-Fraud) */}

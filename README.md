@@ -133,9 +133,8 @@ npm run build
 │   ├── App.tsx                                       # Roteamento SPA (/ e /painel) e layout
 │   ├── components/
 │   │   ├── AdminPanel.tsx                            # Painel administrativo com cor #05BCB4
-│   │   ├── ApplicationModal.tsx                      # Modal de simulação com disparo integrado
 │   │   ├── Header.tsx                                # Cabeçalho clean com logo F
-│   │   ├── LoanSimulator.tsx                         # Simulador interativo R$ 1k a R$ 50k
+│   │   ├── LoanSimulator.tsx                         # Simulador interativo com envio direto para WhatsApp
 │   │   └── ...                                       # Demais componentes institucionais e LGPD
 │   └── services/
 │       └── whatsappService.ts                        # Cliente Supabase Edge Functions + modo demo
