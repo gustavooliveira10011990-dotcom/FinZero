@@ -220,14 +220,17 @@ export function WhatsAppRedirect() {
   const [retry, setRetry] = useState(0);
   const [error, setError] = useState('');
   const [target, setTarget] = useState('');
-  const [webTarget, setWebTarget] = useState('');
 
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && fallbackTimer) clearTimeout(fallbackTimer);
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     setError('');
     setTarget('');
-    setWebTarget('');
     (async () => {
       try {
         const result = await distributeLead(request.attemptId, request.returnPath === '/kw' ? 'pagina_kw' : 'pagina_redirecionando');
@@ -249,10 +252,14 @@ export function WhatsAppRedirect() {
         const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         const url = mobile ? 'whatsapp://send?phone=' + phone + '&text=' + encodeURIComponent(message) : webUrl;
         setTarget(url);
-        setWebTarget(webUrl);
         timer = setTimeout(() => {
           if (!cancelled) {
-            if (mobile) window.location.assign(url);
+            if (mobile) {
+              fallbackTimer = setTimeout(() => {
+                if (!cancelled && document.visibilityState === 'visible') window.location.replace(webUrl);
+              }, 1800);
+              window.location.assign(url);
+            }
             else window.location.replace(url);
           }
         }, 1800);
@@ -260,7 +267,12 @@ export function WhatsAppRedirect() {
         if (!cancelled) setError('Não foi possível conectar ao atendimento. Verifique sua conexão e tente novamente.');
       }
     })();
-    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [request, retry]);
 
   return (
@@ -271,9 +283,6 @@ export function WhatsAppRedirect() {
         <h1 className="text-2xl font-extrabold text-slate-900">{error ? 'Atendimento indisponível' : 'Conectando você a um atendente'}</h1>
         <p className="mt-3 text-sm text-slate-600">{error || (target ? 'Tudo pronto! Abrindo o WhatsApp...' : 'Aguarde um instante. Estamos buscando o próximo atendente disponível.')}</p>
         {error && <button type="button" onClick={() => setRetry(value => value + 1)} className="mt-6 w-full rounded-xl bg-[#05BCB4] px-5 py-3 text-white font-bold">Tentar novamente</button>}
-        {target && <a href={target} className="mt-6 block w-full rounded-xl bg-[#05BCB4] px-5 py-3 text-white font-bold">Abrir WhatsApp</a>}
-        {target && <p className="mt-3 text-xs text-slate-500">Se o aplicativo não abrir automaticamente, toque no botão acima ou <a href={webTarget} className="underline">continue pelo link do WhatsApp</a>.</p>}
-        <a href={(request.returnPath === '/kw' ? '/kw' : '/') + '#simulador'} className="mt-6 inline-block text-sm text-slate-500 underline">Voltar ao site</a>
       </section>
     </main>
   );

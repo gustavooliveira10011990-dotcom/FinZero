@@ -106,6 +106,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToSite }) => {
     setLoginLoading(false);
   };
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void loadMetrics();
+    };
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [isAuthenticated]);
+
   const handleLogout = () => {
     clearAdminToken();
     setIsAuthenticated(false);
@@ -506,7 +519,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToSite }) => {
                 <span>Atendentes do Rodízio</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Cadastre e configure os números que receberão os leads em ordem de rodízio global.
+                Cada atendente recebe 5 encaminhamentos por vez. Os totais são atualizados automaticamente a cada 15 segundos.
               </p>
             </div>
 
@@ -535,7 +548,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBackToSite }) => {
                     <th className="py-3 px-3">Atendente</th>
                     <th className="py-3 px-3">WhatsApp Internacional</th>
                     <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-3 text-center">Hoje</th>
+                    <th className="py-3 px-3 text-center">Encaminhados hoje</th>
                     <th className="py-3 px-3 text-center">7d</th>
                     <th className="py-3 px-3 text-center">15d</th>
                     <th className="py-3 px-3 text-center">30d</th>
